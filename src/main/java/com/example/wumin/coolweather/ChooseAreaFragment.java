@@ -5,6 +5,7 @@ import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,35 +41,40 @@ public class ChooseAreaFragment extends Fragment {
     public static final int LEVEL_CITY = 1;
     public static final int LEVEL_COUNTY = 2;
 
-    private ProgressDialog progressDialog;
+
+    private ProgressDialog progressDialog;  //定义进度窗口
     private TextView titleText;
     private Button backButton;
     private ListView listView;
 
-    private ArrayAdapter<String> adapter;
-    private List<String> dataList = new ArrayList<>();
-
+    private ArrayAdapter<String> adapter;   //适配器
+    private List<String> dataList = new ArrayList<>();  //List列表数据
+    //定义具体的省市县的list数据
     private List<Province> provinceList;
     private List<City> cityList;
     private List<County> countyList;
 
     private Province selectedProvince;
     private City selectedCity;
+    //确定当前的level
     private int currentLevel;
 
     @Nullable
     @Override
+    //创建视图并定义布局视图绑定id与适配器设置---listview
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        //定义视图并绑定布局
         View view =  inflater.inflate(R.layout.choose_area,container,false);
-        titleText = view.findViewById(R.id.title_text);
-        backButton = view.findViewById(R.id.back_button);
-        listView = view.findViewById(R.id.list_view);
+        titleText = (TextView) view.findViewById(R.id.title_text);
+        backButton = (Button) view.findViewById(R.id.back_button);
+        listView = (ListView) view.findViewById(R.id.list_view);
         adapter = new ArrayAdapter<String>(getContext(),android.R.layout.simple_list_item_1,dataList);
         listView.setAdapter(adapter);
         return view;
     }
 
     @Override
+    //创建活动界面，实现列表和按钮点击事件
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -101,12 +107,12 @@ public class ChooseAreaFragment extends Fragment {
         backButton.setVisibility(View.GONE);
         provinceList = DataSupport.findAll(Province.class);
         if(provinceList.size()>0){
-            provinceList.clear();
+            dataList.clear();   //模块dataList刷新
             for(Province province : provinceList){
-                 dataList.add(province.getProvinceName());
+                 dataList.add(province.getProvinceName()); //获取省级列表名称
             }
-            adapter.notifyDataSetChanged();
-            listView.setSelection(0);
+            adapter.notifyDataSetChanged();   //通知适配器数据变化，刷新
+            listView.setSelection(0);        //listview的定位到第一个位置
             currentLevel= LEVEL_PROVINCE;
 
         }else{
@@ -118,10 +124,11 @@ public class ChooseAreaFragment extends Fragment {
     private void queryCities() {
         titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
+
         cityList = DataSupport.where("provinceId = ?",String
                 .valueOf(selectedProvince.getId())).find(City.class);
         if(cityList.size()>0){
-            cityList.clear();
+            dataList.clear();
             for(City city :cityList){
                 dataList.add(city.getCityName());
             }
@@ -140,15 +147,17 @@ public class ChooseAreaFragment extends Fragment {
         countyList = DataSupport.where("cityId = ?",String
                 .valueOf(selectedCity.getId())).find(County.class);
         if(countyList.size()>0){
-            countyList.clear();
+            dataList.clear();
             for(County county : countyList){
                 dataList.add(county.getCountyName());
             }
             adapter.notifyDataSetChanged();
             listView.setSelection(0);
+            currentLevel =LEVEL_COUNTY;
         }else {
+            int provinceCode =selectedProvince.getProvinceCode();
             int cityCode = selectedCity.getCityCode();
-            String address = "http://guolin.tech/api/china"+"/"+ cityCode;
+            String address = "http://guolin.tech/api/china/"+provinceCode+"/"+ cityCode;
             queryFromServer(address,"county");
         }
     }
@@ -156,6 +165,7 @@ public class ChooseAreaFragment extends Fragment {
     //服务器上查询数据
     private void queryFromServer(String address, final String type) {
         showProgressDialog();
+        //使用网络请求
         HttpUtil.sendOkHttpRequest(address, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -171,7 +181,8 @@ public class ChooseAreaFragment extends Fragment {
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                String responseTest = response.body().string();
-                boolean result =false;
+                boolean result =false;   //对应Utility的方法调用
+                //根据类型不同判断，调用函数进行数据解析JSON
                 if("province".equals(type)){
                     result = Utility.handleProvincesResponse(responseTest);
                 }else if("city".equals(type)){
